@@ -5,6 +5,8 @@ import cv2
 import pyfakewebcam
 import threading
 
+from PIL import Image, ImageDraw, ImageFont
+
 from pynput import keyboard
 from pynput.keyboard import GlobalHotKeys
 
@@ -14,9 +16,16 @@ from pynput.keyboard import GlobalHotKeys
 # sudo modprobe v4l2loopback devices=1 video_nr=10 card_label="VirtualCam" exclusive_caps=1
 # Or similar first
 
+# Things to do
+# - Sound effects? :O
+# - Fix it so i dont overflow the box >.<
+# - Automated long-sentence readout
+# - Is this actually a project i wanna do lol XD
+# - Emoji support :P
+
 # --- Hotkey to image map ---
 hotkey_image_map = {
-    "<alt>+0": "images/blank.png",
+    "": "",
     "<alt>+1": "images/yes.png",
     "<alt>+2": "images/no.png",
     "<alt>+3": "images/yay.png",
@@ -30,23 +39,37 @@ hotkey_image_map = {
 # Mmhh.... better idea
 # Composite map like...
 
-better_map = [
+hotkey_image_map = [
     {
-        "image": "path/to/image",  # image location
-        "bounds": [0, 0, 100, 100],  # like, where on the image you can draw text
-        "keybind": "<alt>+X",
+        "image": "images/blank.png",  # image location
+        "bounds": [40, 370, 595, 450],  # like, where on the image you can draw text
+        "keybind": "<alt>+0",
     },
     {
-        "image": "path/to/image",
-        "bounds": [0, 0, 100, 100],
-        "keybind": "<alt>+X",
+        "image": "images/yes.png",
+        "keybind": "<alt>+1",
+    },
+    {
+        "image": "images/no.png",
+        "keybind": "<alt>+2",
+    },
+    {
+        "image": "images/yay.png",
+        "keybind": "<alt>+3",
+    },
+    {
+        "image": "images/hi.png",
+        "keybind": "<alt>+4",
+    },
+    {
+        "image": "images/blep.png",
+        "keybind": "<alt>+5",
+    },
+    {
+        "image": "images/question.png",
+        "keybind": "<alt>+6",
     },
 ]
-
-# Is better ideear
-# So like, use pillow to draw on?
-# Beep boop it doo~
-# Ima make a ?? emoji one sec
 
 
 # --- Args ---
@@ -111,9 +134,69 @@ def set_overlay(path):
 
 
 # --- Register hotkeys ---
-hotkey_actions = {
-    key: lambda p=path: set_overlay(p) for key, path in hotkey_image_map.items()
-}
+# hotkey_actions = {
+#     key: lambda p=path: set_overlay(p) for key, path in hotkey_image_map.items()
+# }
+
+hotkey_actions = {}
+
+for item in hotkey_image_map:
+    keybind = item["keybind"]
+    path = item["image"]
+    bounds = item.get("bounds")  # Can return like, nothing if .get fails
+
+    def make_callback(path=path, bounds=bounds):
+        def callback():
+            global current_overlay
+            img = load_overlay(path)
+
+            if bounds:
+                print(f"Enter to send in {bounds}:")
+                while True:
+                    user_text = input("> ").strip()
+                    if not user_text:
+                        print("Text input ended.")
+                        break
+
+                    # Get Bounds
+                    x0, y0, x1, y1 = bounds
+
+                    # PIL draw logic
+                    pil_img = Image.open(path).convert("RGBA")
+                    draw = ImageDraw.Draw(pil_img)
+                    font = ImageFont.truetype(
+                        "Action_Man.ttf",
+                        (y1 - y0 + 20) / ((max(1, len(user_text) / 20) * 1.85)),
+                    )
+
+                    # Text Valid Area
+                    text_area_w = x1 - x0
+                    text_area_h = y1 - y0
+
+                    # Box in text (required after pillow 10)
+                    bbox = draw.textbbox((0, 0), user_text, font=font)
+                    text_w = bbox[2] - bbox[0]
+                    text_h = bbox[3] - bbox[1]
+                    tx = x0 + (text_area_w - text_w) // 2
+                    ty = y0 + (text_area_h - text_h) // 2
+
+                    draw.text((tx, ty), user_text, font=font, fill=(0, 0, 0, 255))
+
+                    # Convert back to OpenCV format
+                    img_rgba = np.array(pil_img)
+                    rgb_img = cv2.cvtColor(img_rgba, cv2.COLOR_RGBA2RGB)
+                    img = rgb_img
+
+                    # PUSH!
+                    with overlay_lock:
+                        current_overlay = img
+                    camera.schedule_frame(img)  # Sends updated frame right now
+
+                print(f"Switched to overlay: {path}")
+
+        return callback
+
+    hotkey_actions[keybind] = make_callback()
 
 
 def start_hotkey_listener():
