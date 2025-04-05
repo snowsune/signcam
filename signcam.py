@@ -3,9 +3,11 @@ import argparse
 import numpy as np
 import cv2
 import pyfakewebcam
+import threading
+
 from pynput import keyboard
 from pynput.keyboard import GlobalHotKeys
-import threading
+
 
 # --- Vixi Notes! ---
 # You will need to
@@ -14,20 +16,49 @@ import threading
 
 # --- Hotkey to image map ---
 hotkey_image_map = {
-    "<alt>+3": "images/foxi-sticker-ERROR.png",
-    "<alt>+2": "images/foxi-sticker-imafox.png",
-    "<alt>+1": "images/Vixi-doughnut.png",
-    "<alt>+4": "images/Vixi-goo.png",
-    "<alt>+5": "images/Vixi-powerup.png",
-    "<alt>+6": "images/vixi-sticker-sparkle-ver2.png",
+    "<alt>+0": "images/blank.png",
+    "<alt>+1": "images/yes.png",
+    "<alt>+2": "images/no.png",
+    "<alt>+3": "images/yay.png",
+    "<alt>+4": "images/hi.png",
+    "<alt>+5": "images/blep.png",
+    "<alt>+6": "images/question.png",
+    "<alt>+7": "images/vixi-sticker-sparkle-ver2.png",
 }
 
+
+# Mmhh.... better idea
+# Composite map like...
+
+better_map = [
+    {
+        "image": "path/to/image",  # image location
+        "bounds": [0, 0, 100, 100],  # like, where on the image you can draw text
+        "keybind": "<alt>+X",
+    },
+    {
+        "image": "path/to/image",
+        "bounds": [0, 0, 100, 100],
+        "keybind": "<alt>+X",
+    },
+]
+
+# Is better ideear
+# So like, use pillow to draw on?
+# Beep boop it doo~
+# Ima make a ?? emoji one sec
+
+
 # --- Args ---
-parser = argparse.ArgumentParser(description="Virtual camera compositor with hotkeys")
+parser = argparse.ArgumentParser(
+    description="Vixi's Virtual Camera Driver (with optional bg compositor)"
+)
 parser.add_argument("--device", default="/dev/video10", help="v4l2loopback device path")
 parser.add_argument("--width", type=int, default=640, help="Frame width")
 parser.add_argument("--height", type=int, default=480, help="Frame height")
-parser.add_argument("--bg", type=str, default="0,0,0", help="Background color (R,G,B)")
+parser.add_argument(
+    "--bg", type=str, default="0,0,0", help="Background color (R,G,B)"
+)  # 0,255,0 for OBS
 
 args = parser.parse_args()
 bg_color = tuple(map(int, args.bg.split(",")))
@@ -70,6 +101,10 @@ def load_overlay(path):
 def set_overlay(path):
     global current_overlay
     new_overlay = load_overlay(path)
+
+    # Draw in here
+    # Pillow, composite on thingy
+
     with overlay_lock:
         current_overlay = new_overlay
     print(f"Switched to overlay: {path}")
